@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const app = express();
 const models = require("./models");
+const res = require("express/lib/response");
 const port = 8080;
 
 app.use(express.json());
@@ -10,7 +11,10 @@ app.use(cors());
 // 모든 브러우져에서 요청가능하게함
 
 app.get("/products", (req, res) => {
-  models.Product.findAll()
+  models.Product.findAll({
+    order: [["createdAt", "DESC"]],
+    attributes: ["id", "name", "price", "seller"],
+  })
     .then((result) => {
       console.log("PRODUCTS : ", result);
       res.send({
@@ -48,11 +52,24 @@ app.post("/products", (req, res) => {
     });
 });
 
-app.get("/products/:id/event/:eventId", (req, res) => {
+app.get("/products/:id", (req, res) => {
   const params = req.params;
-  const { id, eventId } = params;
-  // res.send(`id는 ${params.id}입니다`);
-  res.send(`id는 ${id} eventId는 ${eventId}입니다`);
+  const { id } = params;
+  models.Product.findOne({
+    where: {
+      id: id,
+    },
+  })
+    .then((result) => {
+      console.log("PRODUCT : ", result);
+      res.send({
+        product: result,
+      });
+    })
+    .catch((error) => {
+      console.error(error);
+      res.send("상품조회에 에러 발생");
+    });
 });
 
 app.listen(port, () => {
