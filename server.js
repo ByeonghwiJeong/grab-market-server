@@ -2,18 +2,53 @@ const express = require("express");
 const cors = require("cors");
 const app = express();
 const models = require("./models");
-const res = require("express/lib/response");
+const multer = require("multer");
+// const upload = multer({ dest: "uploads/" });
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: function (req, file, cb) {
+      cb(null, "uploads/");
+    },
+    filename: function (req, file, cb) {
+      cb(null, file.originalname);
+    },
+  }),
+});
 const port = 8080;
 
 app.use(express.json());
 // express에서 json형식의 데이터를 처리해줌
 app.use(cors());
 // 모든 브러우져에서 요청가능하게함
+app.use("/uploads", express.static("uploads"));
+
+app.get("/banners", (req, res) => {
+  models.Banner.findAll({
+    limit: 2,
+  })
+    .then((result) => {
+      res.send({
+        banners: result,
+      });
+    })
+    .catch((error) => {
+      console.error(error);
+      res.status(400).send("에러가 발생했습니다.");
+    });
+});
 
 app.get("/products", (req, res) => {
   models.Product.findAll({
     order: [["createdAt", "DESC"]],
-    attributes: ["id", "name", "price", "seller"],
+    attributes: [
+      "id",
+      "name",
+      "price",
+      "seller",
+      "createdAt",
+      "imageUrl",
+      "soldout",
+    ],
   })
     .then((result) => {
       console.log("PRODUCTS : ", result);
@@ -23,22 +58,24 @@ app.get("/products", (req, res) => {
     })
     .catch((error) => {
       console.error(error);
-      res.send("에러발생");
+      res.status(400).send("에러발생");
     });
 });
 
 app.post("/products", (req, res) => {
   const body = req.body;
-  const { name, description, price, seller } = body;
+  const { name, description, price, seller, imageUrl } = body;
   //======방어 코드 colunm값 하나라도 빠졌을때=======
-  if (!name || !description || !price || !seller) {
-    res.send("모든 필드를 입력해주세요!!");
+  if (!name || !description || !price || !seller || !imageUrl) {
+    res.status(400).send("모든 필드를 입력해주세요!!");
+    //status가 아니면 200으로 출력됨
   }
   models.Product.create({
     name,
     description,
     price,
     seller,
+    imageUrl,
   })
     .then((result) => {
       console.log("상품 생성 결과 : ", result);
@@ -48,7 +85,7 @@ app.post("/products", (req, res) => {
     })
     .catch((error) => {
       console.error(error);
-      res.send("상품 업로드에 문제가 발생했습니다.");
+      res.status(400).send("상품 업로드에 문제가 발생했습니다.");
     });
 });
 
@@ -68,7 +105,37 @@ app.get("/products/:id", (req, res) => {
     })
     .catch((error) => {
       console.error(error);
-      res.send("상품조회에 에러 발생");
+      res.status(400).send("상품조회에 에러 발생");
+    });
+});
+
+app.post("/images", upload.single("image"), (req, res) => {
+  const file = req.file;
+  console.log(file);
+  res.send({
+    imageUrl: file.path,
+  });
+});
+
+app.post("/purchase/:id", (req, res) => {
+  const { id } = req.params;
+  models.Product.update(
+    {
+      soldout: 1,
+    },
+    {
+      where: {
+        id,
+      },
+    }
+  )
+    .then((result) => {
+      res.send({
+        result: true,
+      });
+    })
+    .catch((error) => {
+      res.status(500).send("에러가 발생했습니다");
     });
 });
 
